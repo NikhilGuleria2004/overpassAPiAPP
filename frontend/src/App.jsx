@@ -46,7 +46,7 @@ out tags;`;
 }
 
 function buildCityQuery(districtName) {
-  return `[out:json][timeout:90];
+  return `[out:json][timeout:40];
 (
   area["name"="${districtName}"]["boundary"="administrative"];
   area["name:en"="${districtName}"]["boundary"="administrative"];
@@ -61,17 +61,29 @@ out center tags;`;
 async function fetchWithFallback(query) {
   for (const endpoint of OVERPASS_ENDPOINTS) {
     try {
+      const controller = new AbortController();
+      const timeout = setTimeout(() => controller.abort(), 20000); // 20s cap
+
       const res = await fetch(endpoint, {
         method: "POST",
         headers: { "Content-Type": "application/x-www-form-urlencoded" },
         body: "data=" + encodeURIComponent(query),
+        signal: controller.signal,
       });
+
+      clearTimeout(timeout);
+
       if (!res.ok) continue;
+
       const data = await res.json();
-      if (data && data.elements !== undefined) return data;
-    } catch (e) {}
+      if (data?.elements) return data;
+
+    } catch (e) {
+      console.error("Failed endpoint:", endpoint, e);
+    }
   }
-  throw new Error("All endpoints failed");
+
+  throw new Error("All Overpass endpoints failed");
 }
 
 function highlightMatch(text, query) {
