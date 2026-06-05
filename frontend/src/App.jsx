@@ -59,31 +59,19 @@ out center tags;`;
 }
 
 async function fetchWithFallback(query) {
-  for (const endpoint of OVERPASS_ENDPOINTS) {
-    try {
-      const controller = new AbortController();
-      const timeout = setTimeout(() => controller.abort(), 20000); // 20s cap
+  const res = await fetch("/api/overpass", {
+    method: "POST",
+    headers: {
+      "Content-Type": "text/plain",
+    },
+    body: query,
+  });
 
-      const res = await fetch(endpoint, {
-        method: "POST",
-        headers: { "Content-Type": "application/x-www-form-urlencoded" },
-        body: "data=" + encodeURIComponent(query),
-        signal: controller.signal,
-      });
-
-      clearTimeout(timeout);
-
-      if (!res.ok) continue;
-
-      const data = await res.json();
-      if (data?.elements) return data;
-
-    } catch (e) {
-      console.error("Failed endpoint:", endpoint, e);
-    }
+  if (!res.ok) {
+    throw new Error("API request failed");
   }
 
-  throw new Error("All Overpass endpoints failed");
+  return await res.json();
 }
 
 function highlightMatch(text, query) {
