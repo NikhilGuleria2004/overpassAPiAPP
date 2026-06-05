@@ -1,7 +1,7 @@
 const OVERPASS_ENDPOINTS = [
   "https://overpass-api.de/api/interpreter",
   "https://overpass.kumi.systems/api/interpreter",
-  "https://maps.mail.ru/osm/tools/overpass/api/interpreter",
+  "https://overpass.openstreetmap.fr/api/interpreter",
 ];
 
 async function readJsonBody(req) {
@@ -24,38 +24,42 @@ async function readJsonBody(req) {
 
 async function fetchOverpass(query) {
   const payload = new URLSearchParams({ data: query }).toString();
+  const headers = {
+    "Content-Type": "application/x-www-form-urlencoded",
+    "Accept": "application/json",
+    "User-Agent": "CitiesAPI/1.0 (+https://overpass-a-pi-app.vercel.app)",
+  };
 
-  let lastError;
+  const failures = [];
   for (const endpoint of OVERPASS_ENDPOINTS) {
     try {
       const response = await fetch(endpoint, {
         method: "POST",
-        headers: { "Content-Type": "application/x-www-form-urlencoded" },
+        headers,
         body: payload,
       });
 
       const text = await response.text();
       if (!response.ok) {
-        lastError = {
-          endpoint,
-          status: response.status,
-          preview: text.slice(0, 200),
-        };
+        failures.push({ endpoint, status: response.status, preview: text.slice(0, 200) });
         continue;
       }
 
       return JSON.parse(text);
     } catch (error) {
-      lastError = { endpoint, error: error instanceof Error ? error.message : String(error) };
+      failures.push({ endpoint, error: error instanceof Error ? error.message : String(error) });
     }
   }
 
-  const message = lastError?.preview
-    ? `Overpass failed at ${lastError.endpoint} (${lastError.status})`
-    : `Overpass request failed at ${lastError?.endpoint}: ${lastError?.error}`;
-
+  const details = failures.map(f => {
+    if (f.status) {
+      return `${f.endpoint} => ${f.status}`;
+    }
+    return `${f.endpoint} => ${f.error}`;
+  });
+  const message = `All Overpass endpoints failed: ${details.join("; ")}`;
   const err = new Error(message);
-  err.info = lastError;
+  err.info = failures;
   throw err;
 }
 
