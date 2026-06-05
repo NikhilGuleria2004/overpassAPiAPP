@@ -1,10 +1,14 @@
 export default async function handler(req, res) {
   try {
-    // IMPORTANT: safely extract body
-    const query =
-      typeof req.body === "string"
-        ? req.body
-        : req.body?.query;
+    // IMPORTANT: Vercel requires explicit parsing sometimes
+    let body = req.body;
+
+    // If body is string, parse it
+    if (typeof body === "string") {
+      body = JSON.parse(body);
+    }
+
+    const query = body?.query;
 
     if (!query) {
       return res.status(400).json({
@@ -25,17 +29,19 @@ export default async function handler(req, res) {
 
     if (!response.ok) {
       const text = await response.text();
-      return res.status(response.status).json({
+      return res.status(500).json({
         error: "Overpass failed",
         details: text,
       });
     }
 
     const data = await response.json();
+
     return res.status(200).json(data);
 
   } catch (err) {
-    console.error(err);
+    console.error("API error:", err);
+
     return res.status(500).json({
       error: err.message,
     });
