@@ -1,50 +1,66 @@
 export default async function handler(req, res) {
   try {
-    let body = req.body;
-
-    if (typeof body === "string") {
-      body = JSON.parse(body);
-    }
-
-    const query = body?.query;
+    const { query } = req.body || {};
 
     if (!query) {
-      return res.status(400).json({
-        error: "Missing query",
-      });
+      return res.status(400).json({ error: "Missing query" });
     }
 
-    const response = await fetch(
+    const endpoints = [
       "https://overpass-api.de/api/interpreter",
-      {
-        method: "POST",
-        headers: {
-          "Content-Type": "application/x-www-form-urlencoded",
-        },
-        body: "data=" + encodeURIComponent(query),
+      "https://overpass.kumi.systems/api/interpreter",
+    ];
+
+    let lastError = null;
+
+    for (const url of endpoints) {
+      try {
+        const response = await fetch(url, {
+          method: "POST",
+          headers: {
+            "Content-Type": "application/x-www-form-urlencoded",
+          },
+          body: "data=" + encodeURIComponent(query),
+        });
+
+        const text = await response.text();
+
+        // SAFE CHECK — DO NOT PARSE YET
+        if (!response.ok) {
+          lastError = {
+            status: response.status,
+            preview: text.slice(0, 200),
+          };
+          continue;
+        }
+
+        // Try parse safely
+        try {
+          const data = JSON.parse(text);
+          return res.status(200).json(data);
+        } catch (e) {
+          lastError = {
+            error: "Invalid JSON from Overpass",
+            preview: text.slice(0, 200),
+          };
+          continue;
+        }
+
+      } catch (err) {
+        lastError = { error: err.message };
       }
-    );
-
-    const text = await response.text(); // IMPORTANT (not json yet)
-
-    // Try safe JSON parse
-    let data;
-    try {
-      data = JSON.parse(text);
-    } catch (e) {
-      return res.status(500).json({
-        error: "Invalid Overpass response",
-        raw: text.slice(0, 300), // debug info
-      });
     }
 
-    return res.status(200).json(data);
+    // If all endpoints fail
+    return res.status(500).json({
+      error: "All Overpass endpoints failed",
+      details: lastError,
+    });
 
   } catch (err) {
-    console.error("API crash:", err);
-
     return res.status(500).json({
       error: err.message,
+      stack: err.stack,
     });
   }
 }
