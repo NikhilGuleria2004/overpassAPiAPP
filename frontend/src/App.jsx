@@ -67,11 +67,7 @@ async function fetchWithFallback(query) {
     body: JSON.stringify({ query }),
   });
 
-  if (!res.ok) {
-    throw new Error("API failed");
-  }
-
-  return await res.json();
+  return res.json();
 }
 
 function highlightMatch(text, query) {
