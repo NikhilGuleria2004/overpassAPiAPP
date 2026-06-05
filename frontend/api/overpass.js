@@ -1,12 +1,28 @@
+async function readJsonBody(req) {
+  if (req.body) {
+    return typeof req.body === "string" ? JSON.parse(req.body) : req.body;
+  }
+
+  const chunks = [];
+  for await (const chunk of req) {
+    chunks.push(typeof chunk === "string" ? Buffer.from(chunk) : chunk);
+  }
+
+  const raw = Buffer.concat(chunks).toString("utf8").trim();
+  if (!raw) {
+    return {};
+  }
+
+  return JSON.parse(raw);
+}
+
 export default async function handler(req, res) {
   try {
-    let body = req.body;
-
-    // FIX: handle string body (VERY IMPORTANT on Vercel)
-    if (typeof body === "string") {
-      body = JSON.parse(body);
+    if (req.method !== "POST") {
+      return res.status(405).json({ error: "Method not allowed" });
     }
 
+    const body = await readJsonBody(req);
     const query = body?.query;
 
     if (!query) {
@@ -30,7 +46,7 @@ export default async function handler(req, res) {
     const text = await response.text();
 
     if (!response.ok) {
-      return res.status(500).json({
+      return res.status(502).json({
         error: "Overpass failed",
         status: response.status,
         preview: text.slice(0, 200),
@@ -38,10 +54,9 @@ export default async function handler(req, res) {
     }
 
     return res.status(200).json(JSON.parse(text));
-
   } catch (err) {
     return res.status(500).json({
-      error: err.message,
+      error: err instanceof Error ? err.message : String(err),
     });
   }
 }
