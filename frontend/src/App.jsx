@@ -67,7 +67,11 @@ async function fetchWithFallback(query) {
     body: JSON.stringify({ query }),
   });
 
-  return res.json();
+  const body = await res.json().catch(() => ({ error: "Invalid JSON response from /api/overpass" }));
+  if (!res.ok) {
+    throw new Error(body.error ? `${body.error}${body.details ? ` — ${JSON.stringify(body.details)}` : ""}` : `API request failed with status ${res.status}`);
+  }
+  return body;
 }
 
 function highlightMatch(text, query) {
@@ -258,7 +262,7 @@ export default function App() {
         const names = [...new Set(data.elements.map(el => el.tags?.name || el.tags?.["name:en"]).filter(Boolean))].sort((a,b) => a.localeCompare(b));
         names.length === 0 ? setDistrictError("No districts found for this state in OpenStreetMap.") : setDistricts(names);
       })
-      .catch(() => setDistrictError("Could not reach Overpass API. Check your connection."))
+      .catch((err) => setDistrictError(`Could not reach Overpass API. ${err.message}`))
       .finally(() => setDistrictLoading(false));
   }, [selectedState, districtAttempt]);
 
@@ -270,7 +274,7 @@ export default function App() {
         const names = [...new Set(data.elements.map(el => el.tags?.name || el.tags?.["name:en"]).filter(Boolean))].sort((a,b) => a.localeCompare(b));
         names.length === 0 ? setCityError("No cities or towns found for this district.") : setCities(names);
       })
-      .catch(() => setCityError("Could not fetch cities. Please try again."))
+      .catch((err) => setCityError(`Could not fetch cities. ${err.message}`))
       .finally(() => setCityLoading(false));
   }, [selectedDistrict, cityAttempt]);
 
