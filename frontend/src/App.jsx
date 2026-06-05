@@ -62,13 +62,13 @@ async function fetchWithFallback(query) {
   const res = await fetch("/api/overpass", {
     method: "POST",
     headers: {
-      "Content-Type": "text/plain",
+      "Content-Type": "application/json",
     },
-    body: query,
+    body: JSON.stringify({ query }),
   });
 
   if (!res.ok) {
-    throw new Error("API request failed");
+    throw new Error("API failed");
   }
 
   return await res.json();
