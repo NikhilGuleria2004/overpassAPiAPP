@@ -1,11 +1,5 @@
 import { useState, useEffect, useRef } from "react";
 
-const OVERPASS_ENDPOINTS = [
-  "https://overpass-api.de/api/interpreter",
-  "https://overpass.kumi.systems/api/interpreter",
-  "https://maps.mail.ru/osm/tools/overpass/api/interpreter",
-];
-
 const INDIAN_STATES = [
   "Andhra Pradesh","Arunachal Pradesh","Assam","Bihar","Chhattisgarh",
   "Goa","Gujarat","Haryana","Himachal Pradesh","Jharkhand",
@@ -61,12 +55,9 @@ out center tags;`;
 async function fetchWithFallback(query) {
   const res = await fetch("/api/overpass", {
     method: "POST",
-    headers: {
-      "Content-Type": "application/json",
-    },
+    headers: { "Content-Type": "application/json" },
     body: JSON.stringify({ query }),
   });
-
   const body = await res.json().catch(() => ({ error: "Invalid JSON response from /api/overpass" }));
   if (!res.ok) {
     throw new Error(body.error ? `${body.error}${body.details ? ` — ${JSON.stringify(body.details)}` : ""}` : `API request failed with status ${res.status}`);
@@ -94,7 +85,6 @@ function SearchableDropdown({ label, step, value, onChange, options, placeholder
   const [open, setOpen] = useState(false);
   const wrapperRef = useRef(null);
   const inputRef = useRef(null);
-  const listRef = useRef(null);
 
   const filtered = options.filter(o => o.toLowerCase().includes(query.toLowerCase()));
 
@@ -122,8 +112,7 @@ function SearchableDropdown({ label, step, value, onChange, options, placeholder
           border: `1px solid ${value ? C.green : C.border}`,
           display: "flex", alignItems: "center", justifyContent: "center",
           fontSize: "11px", color: value ? "#fff" : C.dim,
-          flexShrink: 0, transition: "all 0.2s",
-          fontFamily: "monospace",
+          flexShrink: 0, transition: "all 0.2s", fontFamily: "monospace",
         }}>{step}</span>
         <label style={{ fontSize: "11px", letterSpacing: "0.14em", textTransform: "uppercase", color: C.muted, fontFamily: "monospace" }}>{label}</label>
         {options.length > 0 && !loading && (
@@ -187,7 +176,7 @@ function SearchableDropdown({ label, step, value, onChange, options, placeholder
           </div>
 
           {open && (
-            <div ref={listRef} style={{
+            <div style={{
               position: "absolute", top: "100%", left: 0, right: 0,
               background: C.raised, border: `1px solid ${C.borderHover}`,
               borderTop: "none", borderRadius: "0 0 8px 8px",
@@ -215,6 +204,74 @@ function SearchableDropdown({ label, step, value, onChange, options, placeholder
           )}
         </div>
       )}
+    </div>
+  );
+}
+
+// Google Maps embed using the search query approach (no API key needed)
+function MapEmbed({ city, district, state }) {
+  const query = encodeURIComponent(`${city}, ${district}, ${state}, India`);
+  const src = `https://maps.google.com/maps?q=${query}&output=embed&z=13`;
+
+  return (
+    <div style={{
+      marginTop: "1.25rem",
+      borderRadius: "10px",
+      overflow: "hidden",
+      border: `1px solid ${C.border}`,
+      background: C.surface,
+      animation: "fadeUp 0.4s ease",
+    }}>
+      {/* Map header */}
+      <div style={{
+        padding: "10px 14px",
+        display: "flex",
+        alignItems: "center",
+        gap: "8px",
+        borderBottom: `1px solid ${C.border}`,
+        background: C.raised,
+      }}>
+        <svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke={C.accent} strokeWidth="2.2" strokeLinecap="round" strokeLinejoin="round">
+          <path d="M21 10c0 7-9 13-9 13s-9-6-9-13a9 9 0 0 1 18 0z"/>
+          <circle cx="12" cy="10" r="3"/>
+        </svg>
+        <span style={{ fontSize: "11px", fontFamily: "monospace", color: C.muted, letterSpacing: "0.06em" }}>
+          {city}, {district}
+        </span>
+        <a
+          href={`https://maps.google.com/maps?q=${query}`}
+          target="_blank"
+          rel="noopener noreferrer"
+          style={{
+            marginLeft: "auto",
+            fontSize: "10px",
+            fontFamily: "monospace",
+            color: C.dim,
+            textDecoration: "none",
+            letterSpacing: "0.08em",
+            textTransform: "uppercase",
+            padding: "3px 8px",
+            border: `1px solid ${C.border}`,
+            borderRadius: "4px",
+            transition: "color 0.15s, border-color 0.15s",
+          }}
+          onMouseEnter={e => { e.currentTarget.style.color = C.accent; e.currentTarget.style.borderColor = C.accent; }}
+          onMouseLeave={e => { e.currentTarget.style.color = C.dim; e.currentTarget.style.borderColor = C.border; }}
+        >
+          Open ↗
+        </a>
+      </div>
+
+      {/* iframe */}
+      <iframe
+        title={`Map of ${city}`}
+        src={src}
+        width="100%"
+        height="300"
+        style={{ display: "block", border: "none", filter: "invert(90%) hue-rotate(180deg)" }}
+        loading="lazy"
+        referrerPolicy="no-referrer-when-downgrade"
+      />
     </div>
   );
 }
@@ -411,6 +468,15 @@ export default function App() {
               {selectedState}
             </div>
           </div>
+        )}
+
+        {/* Google Maps embed */}
+        {done && (
+          <MapEmbed
+            city={selectedCity}
+            district={selectedDistrict}
+            state={selectedState}
+          />
         )}
 
         {/* Footer */}
